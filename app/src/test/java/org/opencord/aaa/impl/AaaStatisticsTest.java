@@ -24,6 +24,7 @@ import org.onlab.packet.BasePacket;
 import org.onlab.packet.DeserializationException;
 import org.onlab.packet.EAP;
 import org.onlab.packet.Ethernet;
+import org.onlab.packet.Ip4Address;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.RADIUS;
 import org.onlab.packet.RADIUSAttribute;
@@ -33,8 +34,20 @@ import org.onosproject.event.DefaultEventSinkRegistry;
 import org.onosproject.event.Event;
 import org.onosproject.event.EventDeliveryService;
 import org.onosproject.event.EventSink;
+import org.onosproject.net.AnnotationKeys;
+import org.onosproject.net.Annotations;
+import org.onosproject.net.DefaultAnnotations;
+import org.onosproject.net.DefaultDevice;
+import org.onosproject.net.DefaultPort;
+import org.onosproject.net.Device;
+import org.onosproject.net.DeviceId;
+import org.onosproject.net.Port;
+import org.onosproject.net.Port.Type;
+import org.onosproject.net.PortNumber;
+import org.onosproject.net.SparseAnnotations;
 import org.onosproject.net.config.Config;
 import org.onosproject.net.config.NetworkConfigRegistryAdapter;
+import org.onosproject.net.device.DeviceEvent;
 import org.onosproject.net.packet.DefaultInboundPacket;
 import org.onosproject.net.packet.InboundPacket;
 import org.onosproject.net.packet.PacketContext;
@@ -51,6 +64,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.onosproject.net.NetTestTools.connectPoint;
 import static org.slf4j.LoggerFactory.getLogger;
@@ -600,6 +614,31 @@ private BasePacket fetchPacket(int index) {
         assertNotEquals(aaaStatisticsManager.getAaaStats().getEapolStartReqTrans(), ZERO);
        countAaaStatistics();
 
+    }
+
+    /** Tests the authentication path through the AAA application.
+     *  And counts the aaa supplicant Stats for unauthenticated onu (Port removed)
+     *   @throws DeserializationException
+     *  if packed deserialization fails.
+     */
+    @Test
+    public void testAaaSuplicantStatsForUnauthenticatedOnu() throws Exception {
+
+        // Device configuration
+        DeviceId deviceId = DeviceId.deviceId("of:1");
+        // Source ip address of two different device.
+        Ip4Address sourceIp = Ip4Address.valueOf("10.177.125.4");
+        DefaultAnnotations.Builder annotationsBuilder = DefaultAnnotations.builder()
+                .set(AnnotationKeys.MANAGEMENT_ADDRESS, sourceIp.toString());
+        SparseAnnotations annotations = annotationsBuilder.build();
+        Annotations[] deviceAnnotations = {annotations };
+        Device deviceA = new DefaultDevice(null, deviceId, Device.Type.OTHER, "", "", "", "", null, deviceAnnotations);
+        Port port =
+             new DefaultPort(null, PortNumber.portNumber(1), true, Type.COPPER, DefaultPort.DEFAULT_SPEED, annotations);
+        DeviceEvent deviceEvent = new DeviceEvent(DeviceEvent.Type.PORT_REMOVED, deviceA, port);
+        aaaManager.deviceListener.event(deviceEvent);
+        // Check the aaa supplicant stats object is null.
+        assertNull(aaaManager.aaaSupplicantObj);
     }
 
     // Calculates the AAA statistics count.
